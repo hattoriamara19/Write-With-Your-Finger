@@ -1,0 +1,392 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #0b1020;
+    color: white;
+    min-height: 100vh;
+}
+
+
+/* HEADER */
+
+.topbar {
+    width: 100%;
+    padding: 18px 20px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    background: #11182d;
+    border-bottom: 1px solid #293352;
+}
+
+.topbar h1 {
+    font-size: 28px;
+    margin-bottom: 4px;
+}
+
+.topbar p {
+    color: #aeb8d0;
+    font-size: 14px;
+}
+
+.status {
+    padding: 8px 14px;
+    border-radius: 20px;
+    background: #252e49;
+    color: #cbd5ff;
+    font-size: 13px;
+}
+
+
+/* MAIN */
+
+.app {
+    width: min(1100px, 96%);
+    margin: 20px auto;
+}
+
+
+/* CAMERA */
+
+.camera-section {
+    position: relative;
+
+    width: 100%;
+    max-width: 1000px;
+
+    margin: auto;
+
+    aspect-ratio: 16 / 9;
+
+    background: #02040a;
+
+    border-radius: 18px;
+
+    overflow: hidden;
+
+    border: 2px solid #293352;
+
+    box-shadow: 0 10px 35px rgba(0,0,0,0.35);
+}
+
+
+/* VIDEO */
+
+#camera {
+    position: absolute;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    transform: scaleX(-1);
+
+    background: black;
+}
+
+
+/* DRAWING CANVAS */
+
+#drawingCanvas {
+    position: absolute;
+
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 100%;
+
+    z-index: 3;
+
+    pointer-events: none;
+}
+
+
+/* POINTER */
+
+#fingerPointer {
+    position: absolute;
+
+    width: 18px;
+    height: 18px;
+
+    border-radius: 50%;
+
+    background: #00ff66;
+
+    border: 3px solid white;
+
+    box-shadow:
+        0 0 10px #00ff66,
+        0 0 25px #00ff66;
+
+    transform: translate(-50%, -50%);
+
+    display: none;
+
+    z-index: 5;
+
+    pointer-events: none;
+}
+
+
+/* CAMERA MESSAGE */
+
+.camera-message {
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    transform: translate(-50%, -50%);
+
+    padding: 12px 18px;
+
+    background: rgba(0,0,0,0.7);
+
+    border-radius: 10px;
+
+    color: white;
+
+    z-index: 10;
+
+    text-align: center;
+}
+
+
+/* CONTROLS */
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    margin-top: 16px;
+
+    justify-content: center;
+}
+
+button {
+    border: none;
+
+    padding: 11px 16px;
+
+    border-radius: 10px;
+
+    background: #252e49;
+
+    color: white;
+
+    font-size: 14px;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+button:hover {
+    background: #354161;
+}
+
+button:active {
+    transform: scale(0.96);
+}
+
+button.primary {
+    background: #176b45;
+}
+
+button.primary:hover {
+    background: #20885a;
+}
+
+
+/* SETTINGS */
+
+.settings {
+    margin-top: 18px;
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(230px, 1fr));
+
+    gap: 14px;
+}
+
+.setting {
+    background: #11182d;
+
+    border: 1px solid #293352;
+
+    border-radius: 14px;
+
+    padding: 16px;
+}
+
+.setting label {
+    display: block;
+
+    margin-bottom: 10px;
+
+    color: #dce3ff;
+
+    font-weight: bold;
+}
+
+#brushSize {
+    width: 100%;
+}
+
+#brushValue {
+    display: block;
+
+    margin-top: 7px;
+
+    color: #aeb8d0;
+}
+
+
+/* COLORS */
+
+.colors {
+    display: flex;
+
+    gap: 10px;
+
+    flex-wrap: wrap;
+}
+
+.color {
+    width: 34px;
+    height: 34px;
+
+    padding: 0;
+
+    border-radius: 50%;
+
+    border: 3px solid transparent;
+}
+
+.color.active {
+    border-color: white;
+
+    box-shadow: 0 0 0 2px #69769c;
+}
+
+
+/* INSTRUCTIONS */
+
+.instructions {
+    margin-top: 20px;
+
+    background: #11182d;
+
+    border: 1px solid #293352;
+
+    border-radius: 14px;
+
+    padding: 20px;
+}
+
+.instructions h2 {
+    margin-bottom: 15px;
+}
+
+.instruction-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(180px, 1fr));
+
+    gap: 12px;
+}
+
+.instruction-grid div {
+    background: #19223c;
+
+    padding: 14px;
+
+    border-radius: 10px;
+}
+
+.instruction-grid p {
+    margin-top: 7px;
+
+    color: #aeb8d0;
+
+    font-size: 14px;
+
+    line-height: 1.4;
+}
+
+.tip {
+    margin-top: 15px;
+
+    color: #b9c4df;
+
+    font-size: 14px;
+}
+
+
+/* FOOTER */
+
+footer {
+    text-align: center;
+
+    padding: 25px;
+
+    color: #7f8aa8;
+
+    font-size: 13px;
+}
+
+
+/* MOBILE */
+
+@media (max-width: 650px) {
+
+    .topbar {
+        flex-direction: column;
+
+        align-items: flex-start;
+
+        gap: 10px;
+    }
+
+    .topbar h1 {
+        font-size: 24px;
+    }
+
+    .camera-section {
+        aspect-ratio: 3 / 4;
+    }
+
+    .controls button {
+        flex: 1 1 42%;
+    }
+
+    .app {
+        width: 94%;
+    }
+
+}
+
+
+/* VERY SMALL SCREEN */
+
+@media (max-width: 380px) {
+
+    .controls button {
+        flex: 1 1 100%;
+    }
+
+}
