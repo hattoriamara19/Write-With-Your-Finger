@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>AirWrite - Finger Writing</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- MediaPipe Tasks Vision -->
+    <script type="module" src="script.js"></script>
+</head>
+
+<body>
+
+<header class="topbar">
+    <div>
+        <h1>✋ AirWrite</h1>
+        <p>Write with your finger without touching the screen</p>
+    </div>
+
+    <div id="status" class="status">
+        Loading...
+    </div>
+</header>
+
+
+<main class="app">
+
+    <!-- CAMERA AREA -->
+    <section class="camera-section">
+
+        <video id="camera"
+               autoplay
+               playsinline
+               muted>
+        </video>
+
+        <!-- Drawing appears here -->
+        <canvas id="drawingCanvas"></canvas>
+
+        <!-- Finger pointer -->
+        <div id="fingerPointer"></div>
+
+        <div id="cameraMessage" class="camera-message">
+            Camera not started
+        </div>
+
+    </section>
+
+
+    <!-- CONTROLS -->
+    <section class="controls">
+
+        <button id="startCamera" class="primary">
+            📷 Start Camera
+        </button>
+
+        <button id="switchCamera">
+            🔄 Switch Camera
+        </button>
+
+        <button id="clearCanvas">
+            🗑️ Clear
+        </button>
+
+        <button id="undo">
+            ↩️ Undo
+        </button>
+
+        <button id="redo">
+            ↪️ Redo
+        </button>
+
+        <button id="saveImage">
+            💾 Save
+        </button>
+
+    </section>
+
+
+    <!-- WRITING SETTINGS -->
+    <section class="settings">
+
+        <div class="setting">
+            <label>✏️ Brush Size</label>
+
+            <input
+                type="range"
+                id="brushSize"
+                min="2"
+                max="30"
+                value="7"
+            >
+
+            <span id="brushValue">7 px</span>
+        </div>
+
+
+        <div class="setting">
+
+            <label>🎨 Color</label>
+
+            <div class="colors">
+
+                <button class="color active"
+                        data-color="#00ff66"
+                        style="background:#00ff66">
+                </button>
+
+                <button class="color"
+                        data-color="#ff0000"
+                        style="background:#ff0000">
+                </button>
+
+                <button class="color"
+                        data-color="#008cff"
+                        style="background:#008cff">
+                </button>
+
+                <button class="color"
+                        data-color="#ffff00"
+                        style="background:#ffff00">
+                </button>
+
+                <button class="color"
+                        data-color="#ffffff"
+                        style="background:#ffffff">
+                </button>
+
+                <button class="color"
+                        data-color="#ff00ff"
+                        style="background:#ff00ff">
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <div class="setting">
+
+            <label>🧽 Eraser</label>
+
+            <button id="eraser">
+                Eraser OFF
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- INSTRUCTIONS -->
+    <section class="instructions">
+
+        <h2>How to use AirWrite</h2>
+
+        <div class="instruction-grid">
+
+            <div>
+                <strong>1️⃣ Start</strong>
+                <p>Allow camera permission.</p>
+            </div>
+
+            <div>
+                <strong>2️⃣ Raise finger</strong>
+                <p>Show your hand clearly to the camera.</p>
+            </div>
+
+            <div>
+                <strong>3️⃣ Write</strong>
+                <p>Move your index finger to write.</p>
+            </div>
+
+            <div>
+                <strong>4️⃣ Pause</strong>
+                <p>Lower your finger or close your hand to stop writing.</p>
+            </div>
+
+        </div>
+
+        <p class="tip">
+            💡 Tip: Use good lighting and keep your hand inside the camera view.
+        </p>
+
+    </section>
+
+</main>
+
+
+<footer>
+    <p>
+        AirWrite • Finger Writing using Computer Vision
+    </p>
+</footer>
+
+</body>
+</html>
