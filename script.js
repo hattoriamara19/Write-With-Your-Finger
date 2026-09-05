@@ -1,330 +1,311 @@
 import {
     FilesetResolver,
     HandLandmarker
-} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22";
-
-
-/* =========================================================
-   AIRWRITE
-   Finger Writing App
-   ========================================================= */
-
-
-/* -----------------------------
-   ELEMENTS
------------------------------ */
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs";
 
 const video = document.getElementById("camera");
-
 const canvas = document.getElementById("drawingCanvas");
-
 const ctx = canvas.getContext("2d");
 
-const startCameraButton =
-    document.getElementById("startCamera");
+const startButton = document.getElementById("startCamera");
+const switchButton = document.getElementById("switchCamera");
+const clearButton = document.getElementById("clearCanvas");
+const undoButton = document.getElementById("undo");
+const redoButton = document.getElementById("redo");
+const saveButton = document.getElementById("saveImage");
 
-const switchCameraButton =
-    document.getElementById("switchCamera");
+const status = document.getElementById("status");
+const message = document.getElementById("cameraMessage");
+const pointer = document.getElementById("fingerPointer");
 
-const clearButton =
-    document.getElementById("clearCanvas");
+const brushSizeInput = document.getElementById("brushSize");
+const brushValue = document.getElementById("brushValue");
+const eraserButton = document.getElementById("eraser");
 
-const undoButton =
-    document.getElementById("undo");
-
-const redoButton =
-    document.getElementById("redo");
-
-const saveButton =
-    document.getElementById("saveImage");
-
-const brushSizeInput =
-    document.getElementById("brushSize");
-
-const brushValue =
-    document.getElementById("brushValue");
-
-const eraserButton =
-    document.getElementById("eraser");
-
-const statusElement =
-    document.getElementById("status");
-
-const cameraMessage =
-    document.getElementById("cameraMessage");
-
-const pointer =
-    document.getElementById("fingerPointer");
-
-const colorButtons =
-    document.querySelectorAll(".color");
-
-
-/* -----------------------------
-   VARIABLES
------------------------------ */
+const colorButtons = document.querySelectorAll(".color");
 
 let handLandmarker = null;
-
 let stream = null;
-
-let cameraRunning = false;
-
-let currentFacingMode = "user";
-
-let animationFrameId = null;
-
-let lastVideoTime = -1;
-
-let drawing = false;
-
-let lastX = null;
-
-let lastY = null;
+let running = false;
+let facingMode = "user";
 
 let brushColor = "#00ff66";
-
 let brushSize = 7;
+let eraser = false;
 
-let eraserMode = false;
-
-
-/* -----------------------------
-   UNDO / REDO
------------------------------ */
+let drawing = false;
+let lastX = null;
+let lastY = null;
 
 let undoStack = [];
-
 let redoStack = [];
 
 
-/* =========================================================
-   MEDIAPIPE INITIALIZATION
-   ========================================================= */
+// =====================================================
+// INITIALIZE HAND TRACKING
+// =====================================================
 
-async function initializeHandLandmarker() {
+async function loadHandTracking() {
 
     try {
 
-        statusElement.textContent =
-            "Loading hand tracking...";
+        status.textContent = "Loading hand tracking...";
 
-        const vision =
-            await FilesetResolver.forVisionTasks(
-                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
-            );
+        const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
+        );
 
+        handLandmarker = await HandLandmarker.createFromOptions(
+            vision,
+            {
+                baseOptions: {
+                    modelAssetPath:
+                        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+                },
 
-        handLandmarker =
-            await HandLandmarker.createFromOptions(
-                vision,
-                {
-                    baseOptions: {
-                        modelAssetPath:
-                            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                runningMode: "VIDEO",
 
-                        delegate: "GPU"
-                    },
+                numHands: 1,
 
-                    runningMode: "VIDEO",
+                minHandDetectionConfidence: 0.5,
 
-                    numHands: 1,
+                minHandPresenceConfidence: 0.5,
 
-                    minHandDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            }
+        );
 
-                    minHandPresenceConfidence: 0.5,
+        status.textContent = "Ready";
 
-                    minTrackingConfidence: 0.5
-                }
-            );
-
-
-        statusElement.textContent =
-            "Ready";
+        console.log("Hand tracking loaded.");
 
     } catch (error) {
 
-        console.error(error);
-
-        statusElement.textContent =
-            "Hand tracker error";
-
-        alert(
-            "Could not load the hand tracking model.\n\n" +
-            "Check your internet connection and reload the page."
+        console.error(
+            "MediaPipe loading error:",
+            error
         );
+
+        status.textContent =
+            "Hand tracking unavailable";
+
+        /*
+          Camera can still work even if
+          hand tracking fails.
+        */
     }
 }
 
 
-/* =========================================================
-   CAMERA
-   ========================================================= */
+// =====================================================
+// START CAMERA
+// =====================================================
 
 async function startCamera() {
 
     try {
 
+        // Check browser support
+        if (!navigator.mediaDevices ||
+            !navigator.mediaDevices.getUserMedia) {
+
+            throw new Error(
+                "Camera API is not supported."
+            );
+        }
+
+
+        // Stop previous camera
         stopCamera();
 
-        cameraMessage.textContent =
-            "Starting camera...";
 
-        cameraMessage.style.display =
-            "block";
+        message.textContent =
+            "Requesting camera permission...";
+
+        message.style.display = "block";
+
+
+        /*
+          Camera settings.
+          Do NOT force exact resolution.
+        */
+
+        const constraints = {
+
+            video: {
+                facingMode: facingMode,
+                width: {
+                    ideal: 1280
+                },
+                height: {
+                    ideal: 720
+                }
+            },
+
+            audio: false
+        };
+
+
+        console.log(
+            "Requesting camera:",
+            constraints
+        );
 
 
         stream =
-            await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: {
-                        ideal: currentFacingMode
-                    },
+            await navigator.mediaDevices.getUserMedia(
+                constraints
+            );
 
-                    width: {
-                        ideal: 1280
-                    },
 
-                    height: {
-                        ideal: 720
-                    }
-                },
-
-                audio: false
-            });
+        console.log(
+            "Camera stream obtained."
+        );
 
 
         video.srcObject = stream;
 
+
+        await new Promise(resolve => {
+
+            video.onloadedmetadata = resolve;
+
+        });
+
+
         await video.play();
 
 
-        cameraRunning = true;
+        running = true;
 
-        cameraMessage.style.display =
-            "none";
 
-        startCameraButton.textContent =
-            "🟢 Camera Running";
+        message.style.display = "none";
 
-        statusElement.textContent =
-            "Camera ready";
+        startButton.textContent =
+            "⏹️ Stop Camera";
+
+        status.textContent =
+            "Camera running";
 
 
         resizeCanvas();
 
 
-        if (!animationFrameId) {
+        requestAnimationFrame(processFrame);
 
-            animationFrameId =
-                requestAnimationFrame(processFrame);
-        }
 
     } catch (error) {
 
-        console.error(error);
-
-        cameraRunning = false;
-
-        cameraMessage.textContent =
-            "Camera permission required";
-
-        cameraMessage.style.display =
-            "block";
-
-        statusElement.textContent =
-            "Camera unavailable";
-
-        alert(
-            "Camera could not be started.\n\n" +
-            "Please allow camera permission and try again."
+        console.error(
+            "CAMERA ERROR:",
+            error
         );
+
+
+        running = false;
+
+
+        message.style.display = "block";
+
+
+        if (error.name === "NotAllowedError") {
+
+            message.innerHTML =
+                "🚫 Camera permission denied.<br>" +
+                "Allow camera permission and reload.";
+
+        } else if (error.name === "NotFoundError") {
+
+            message.textContent =
+                "📷 No camera found.";
+
+        } else if (error.name === "NotReadableError") {
+
+            message.textContent =
+                "⚠️ Camera is being used by another app.";
+
+        } else if (error.name === "SecurityError") {
+
+            message.textContent =
+                "🔒 Camera requires HTTPS.";
+
+        } else {
+
+            message.textContent =
+                "❌ Camera error: " +
+                error.message;
+        }
+
+
+        status.textContent =
+            "Camera error";
     }
 }
 
+
+// =====================================================
+// STOP CAMERA
+// =====================================================
 
 function stopCamera() {
 
     if (stream) {
 
-        stream.getTracks().forEach(track => {
-            track.stop();
-        });
+        stream.getTracks().forEach(
+            track => track.stop()
+        );
 
         stream = null;
     }
 
+
     video.srcObject = null;
 
-    cameraRunning = false;
+    running = false;
 
     drawing = false;
 
     lastX = null;
-
     lastY = null;
 
-    pointer.style.display =
-        "none";
+    pointer.style.display = "none";
 }
 
 
-/* =========================================================
-   SWITCH CAMERA
-   ========================================================= */
+// =====================================================
+// SWITCH CAMERA
+// =====================================================
 
 async function switchCamera() {
 
-    currentFacingMode =
-        currentFacingMode === "user"
+    facingMode =
+        facingMode === "user"
             ? "environment"
             : "user";
 
-    if (cameraRunning) {
+
+    if (running) {
 
         await startCamera();
 
     } else {
 
-        statusElement.textContent =
-            currentFacingMode === "user"
+        status.textContent =
+            facingMode === "user"
                 ? "Front camera selected"
                 : "Back camera selected";
     }
 }
 
 
-/* =========================================================
-   CANVAS
-   ========================================================= */
+// =====================================================
+// CANVAS
+// =====================================================
 
 function resizeCanvas() {
 
     const rect =
         canvas.getBoundingClientRect();
-
-
-    const oldCanvas =
-        document.createElement("canvas");
-
-    oldCanvas.width =
-        canvas.width;
-
-    oldCanvas.height =
-        canvas.height;
-
-    const oldCtx =
-        oldCanvas.getContext("2d");
-
-    if (canvas.width > 0 && canvas.height > 0) {
-
-        oldCtx.drawImage(
-            canvas,
-            0,
-            0
-        );
-    }
-
 
     canvas.width =
         Math.max(1, Math.floor(rect.width));
@@ -332,43 +313,18 @@ function resizeCanvas() {
     canvas.height =
         Math.max(1, Math.floor(rect.height));
 
-
-    if (
-        oldCanvas.width > 0 &&
-        oldCanvas.height > 0
-    ) {
-
-        ctx.drawImage(
-            oldCanvas,
-            0,
-            0,
-            oldCanvas.width,
-            oldCanvas.height,
-            0,
-            0,
-            canvas.width,
-            canvas.height
-        );
-    }
-
-
-    setupDrawingContext();
+    setupCanvas();
 }
 
 
-function setupDrawingContext() {
+function setupCanvas() {
 
-    ctx.lineCap =
-        "round";
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
 
-    ctx.lineJoin =
-        "round";
+    ctx.lineWidth = brushSize;
 
-    ctx.lineWidth =
-        brushSize;
-
-    ctx.strokeStyle =
-        brushColor;
+    ctx.strokeStyle = brushColor;
 }
 
 
@@ -378,62 +334,51 @@ window.addEventListener(
 );
 
 
-/* =========================================================
-   PROCESS CAMERA FRAMES
-   ========================================================= */
+// =====================================================
+// CAMERA FRAME PROCESSING
+// =====================================================
 
-async function processFrame() {
+function processFrame() {
 
-    animationFrameId = null;
+    if (!running) {
+        return;
+    }
 
 
     if (
-        cameraRunning &&
         handLandmarker &&
         video.readyState >= 2
     ) {
 
-        if (
-            video.currentTime !==
-            lastVideoTime
-        ) {
+        try {
 
-            lastVideoTime =
-                video.currentTime;
-
-
-            try {
-
-                const results =
-                    handLandmarker.detectForVideo(
-                        video,
-                        performance.now()
-                    );
-
-
-                handleHandResults(results);
-
-            } catch (error) {
-
-                console.error(
-                    "Detection error:",
-                    error
+            const results =
+                handLandmarker.detectForVideo(
+                    video,
+                    performance.now()
                 );
-            }
+
+            processHands(results);
+
+        } catch (error) {
+
+            console.error(
+                "Hand detection error:",
+                error
+            );
         }
     }
 
 
-    animationFrameId =
-        requestAnimationFrame(processFrame);
+    requestAnimationFrame(processFrame);
 }
 
 
-/* =========================================================
-   HAND DETECTION
-   ========================================================= */
+// =====================================================
+// HAND PROCESSING
+// =====================================================
 
-function handleHandResults(results) {
+function processHands(results) {
 
     if (
         !results ||
@@ -441,15 +386,12 @@ function handleHandResults(results) {
         results.landmarks.length === 0
     ) {
 
-        stopDrawing();
+        stopWriting();
 
-        pointer.style.display =
-            "none";
+        pointer.style.display = "none";
 
-        statusElement.textContent =
-            cameraRunning
-                ? "Show your hand"
-                : "Camera stopped";
+        status.textContent =
+            "Show your hand";
 
         return;
     }
@@ -459,124 +401,71 @@ function handleHandResults(results) {
         results.landmarks[0];
 
 
-    /*
-        MediaPipe hand landmark 8
-        = index finger tip
-    */
+    // Index finger tip = landmark 8
 
-    const indexTip =
-        hand[8];
+    const tip = hand[8];
 
 
     /*
-        Landmark coordinates are 0-1.
-        Because the displayed video is mirrored,
-        we mirror X as well.
+      Camera image is mirrored because
+      CSS uses scaleX(-1).
     */
 
     const x =
-        (1 - indexTip.x) *
-        canvas.width;
+        (1 - tip.x) * canvas.width;
 
     const y =
-        indexTip.y *
-        canvas.height;
+        tip.y * canvas.height;
 
 
-    showPointer(x, y);
+    pointer.style.display = "block";
+
+    pointer.style.left =
+        x + "px";
+
+    pointer.style.top =
+        y + "px";
 
 
     /*
-        Determine whether index finger
-        is extended.
-
-        Landmark:
-        8  = index tip
-        6  = index PIP
-        5  = index MCP
-
-        If tip is above PIP, index is
-        considered extended.
+      Index finger extended:
+      tip 8 should be above PIP 6.
     */
 
     const indexExtended =
-        hand[8].y <
-        hand[6].y;
+        hand[8].y < hand[6].y;
 
-
-    /*
-        Thumb / finger movement can sometimes
-        cause false drawing.
-
-        We also require the index finger
-        to be reasonably extended.
-    */
 
     if (indexExtended) {
 
-        drawAt(x, y);
-
-        statusElement.textContent =
+        status.textContent =
             "✍️ Writing";
 
+        draw(x, y);
+
     } else {
 
-        stopDrawing();
+        status.textContent =
+            "☝️ Raise index finger";
 
-        statusElement.textContent =
-            "☝️ Raise index finger to write";
+        stopWriting();
     }
 }
 
 
-/* =========================================================
-   POINTER
-   ========================================================= */
+// =====================================================
+// DRAW
+// =====================================================
 
-function showPointer(x, y) {
-
-    pointer.style.display =
-        "block";
-
-    pointer.style.left =
-        `${x}px`;
-
-    pointer.style.top =
-        `${y}px`;
-
-
-    if (eraserMode) {
-
-        pointer.style.background =
-            "#ffffff";
-
-        pointer.style.boxShadow =
-            "0 0 15px white";
-
-    } else {
-
-        pointer.style.background =
-            brushColor;
-
-        pointer.style.boxShadow =
-            `0 0 10px ${brushColor},
-             0 0 25px ${brushColor}`;
-    }
-}
-
-
-/* =========================================================
-   DRAWING
-   ========================================================= */
-
-function drawAt(x, y) {
+function draw(x, y) {
 
     if (!drawing) {
+
+        saveState();
 
         drawing = true;
 
         lastX = x;
-
         lastY = y;
 
         return;
@@ -589,23 +478,14 @@ function drawAt(x, y) {
     ) {
 
         lastX = x;
-
         lastY = y;
 
         return;
     }
 
 
-    /*
-        Distance check prevents strange
-        lines when tracking jumps.
-    */
-
-    const dx =
-        x - lastX;
-
-    const dy =
-        y - lastY;
+    const dx = x - lastX;
+    const dy = y - lastY;
 
     const distance =
         Math.sqrt(
@@ -614,10 +494,11 @@ function drawAt(x, y) {
         );
 
 
-    if (distance > 150) {
+    // Ignore sudden tracking jumps
+
+    if (distance > 120) {
 
         lastX = x;
-
         lastY = y;
 
         return;
@@ -637,7 +518,7 @@ function drawAt(x, y) {
     );
 
 
-    if (eraserMode) {
+    if (eraser) {
 
         ctx.globalCompositeOperation =
             "destination-out";
@@ -660,51 +541,49 @@ function drawAt(x, y) {
 
     ctx.stroke();
 
-
     ctx.globalCompositeOperation =
         "source-over";
 
 
     lastX = x;
-
     lastY = y;
 }
 
 
-function stopDrawing() {
-
-    if (drawing) {
-
-        saveUndoState();
-
-    }
+function stopWriting() {
 
     drawing = false;
 
     lastX = null;
-
     lastY = null;
 }
 
 
-/* =========================================================
-   UNDO / REDO
-   ========================================================= */
+// =====================================================
+// UNDO
+// =====================================================
 
-function getCanvasImage() {
+function saveState() {
 
-    return canvas.toDataURL(
-        "image/png"
+    undoStack.push(
+        canvas.toDataURL()
     );
+
+    if (undoStack.length > 30) {
+
+        undoStack.shift();
+    }
+
+    redoStack = [];
 }
 
 
-function restoreCanvas(data) {
+function restore(data) {
 
     const image =
         new Image();
 
-    image.onload = () => {
+    image.onload = function () {
 
         ctx.clearRect(
             0,
@@ -726,22 +605,6 @@ function restoreCanvas(data) {
 }
 
 
-function saveUndoState() {
-
-    const image =
-        getCanvasImage();
-
-    undoStack.push(image);
-
-    if (undoStack.length > 30) {
-
-        undoStack.shift();
-    }
-
-    redoStack = [];
-}
-
-
 function undo() {
 
     if (undoStack.length === 0) {
@@ -749,17 +612,16 @@ function undo() {
     }
 
 
-    const current =
-        getCanvasImage();
-
-    redoStack.push(current);
+    redoStack.push(
+        canvas.toDataURL()
+    );
 
 
     const previous =
         undoStack.pop();
 
 
-    restoreCanvas(previous);
+    restore(previous);
 }
 
 
@@ -770,27 +632,26 @@ function redo() {
     }
 
 
-    const current =
-        getCanvasImage();
-
-    undoStack.push(current);
+    undoStack.push(
+        canvas.toDataURL()
+    );
 
 
     const next =
         redoStack.pop();
 
 
-    restoreCanvas(next);
+    restore(next);
 }
 
 
-/* =========================================================
-   CLEAR
-   ========================================================= */
+// =====================================================
+// CLEAR
+// =====================================================
 
 function clearCanvas() {
 
-    saveUndoState();
+    saveState();
 
     ctx.clearRect(
         0,
@@ -798,165 +659,148 @@ function clearCanvas() {
         canvas.width,
         canvas.height
     );
-
-    drawing = false;
-
-    lastX = null;
-
-    lastY = null;
 }
 
 
-/* =========================================================
-   SAVE IMAGE
-   ========================================================= */
+// =====================================================
+// SAVE
+// =====================================================
 
 function saveImage() {
-
-    const image =
-        canvas.toDataURL(
-            "image/png"
-        );
-
 
     const link =
         document.createElement("a");
 
     link.download =
-        "AirWrite-Drawing.png";
+        "AirWrite.png";
 
     link.href =
-        image;
+        canvas.toDataURL(
+            "image/png"
+        );
 
     link.click();
 }
 
 
-/* =========================================================
-   BRUSH
-   ========================================================= */
+// =====================================================
+// BRUSH
+// =====================================================
 
 brushSizeInput.addEventListener(
     "input",
-    () => {
+    function () {
 
         brushSize =
             Number(
-                brushSizeInput.value
+                this.value
             );
 
         brushValue.textContent =
-            `${brushSize} px`;
+            brushSize + " px";
 
-        setupDrawingContext();
+        setupCanvas();
     }
 );
 
 
-/* =========================================================
-   COLORS
-   ========================================================= */
+// =====================================================
+// COLORS
+// =====================================================
 
-colorButtons.forEach(button => {
+colorButtons.forEach(
+    button => {
 
-    button.addEventListener(
-        "click",
-        () => {
+        button.addEventListener(
+            "click",
+            function () {
 
-            colorButtons.forEach(
-                item =>
-                    item.classList.remove(
-                        "active"
-                    )
-            );
-
-
-            button.classList.add(
-                "active"
-            );
+                colorButtons.forEach(
+                    b =>
+                        b.classList.remove(
+                            "active"
+                        )
+                );
 
 
-            brushColor =
-                button.dataset.color;
+                this.classList.add(
+                    "active"
+                );
 
 
-            eraserMode =
-                false;
+                brushColor =
+                    this.dataset.color;
 
 
-            eraserButton.textContent =
-                "Eraser OFF";
+                eraser = false;
 
 
-            pointer.style.background =
-                brushColor;
+                eraserButton.textContent =
+                    "Eraser OFF";
 
 
-            setupDrawingContext();
-        }
-    );
-});
+                pointer.style.background =
+                    brushColor;
 
 
-/* =========================================================
-   ERASER
-   ========================================================= */
+                setupCanvas();
+            }
+        );
+    }
+);
+
+
+// =====================================================
+// ERASER
+// =====================================================
 
 eraserButton.addEventListener(
     "click",
-    () => {
+    function () {
 
-        eraserMode =
-            !eraserMode;
+        eraser = !eraser;
 
-
-        eraserButton.textContent =
-            eraserMode
+        this.textContent =
+            eraser
                 ? "🧽 Eraser ON"
                 : "Eraser OFF";
-
-
-        if (eraserMode) {
-
-            pointer.style.background =
-                "#ffffff";
-
-        } else {
-
-            pointer.style.background =
-                brushColor;
-        }
     }
 );
 
 
-/* =========================================================
-   BUTTON EVENTS
-   ========================================================= */
+// =====================================================
+// BUTTONS
+// =====================================================
 
-startCameraButton.addEventListener(
+startButton.addEventListener(
     "click",
-    async () => {
+    async function () {
 
-        if (!cameraRunning) {
-
-            await startCamera();
-
-        } else {
+        if (running) {
 
             stopCamera();
 
-            startCameraButton.textContent =
+            this.textContent =
                 "📷 Start Camera";
 
-            statusElement.textContent =
+            status.textContent =
                 "Camera stopped";
+
+            message.textContent =
+                "Camera not started";
+
+            message.style.display =
+                "block";
+
+        } else {
+
+            await startCamera();
         }
     }
 );
 
 
-switchCameraButton.addEventListener(
+switchButton.addEventListener(
     "click",
     switchCamera
 );
@@ -986,17 +830,10 @@ saveButton.addEventListener(
 );
 
 
-/* =========================================================
-   STARTUP
-   ========================================================= */
+// =====================================================
+// STARTUP
+// =====================================================
 
-window.addEventListener(
-    "load",
-    async () => {
+resizeCanvas();
 
-        resizeCanvas();
-
-        await initializeHandLandmarker();
-
-    }
-);
+loadHandTracking();
